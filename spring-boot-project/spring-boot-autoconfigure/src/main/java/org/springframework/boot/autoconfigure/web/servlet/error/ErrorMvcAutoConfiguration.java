@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,9 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
@@ -47,6 +50,7 @@ import org.springframework.boot.autoconfigure.template.TemplateAvailabilityProvi
 import org.springframework.boot.autoconfigure.web.ResourceProperties;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
+import org.springframework.boot.autoconfigure.web.servlet.WebMvcProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.server.ErrorPage;
 import org.springframework.boot.web.server.ErrorPageRegistrar;
@@ -66,7 +70,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import org.springframework.util.PropertyPlaceholderHelper.PlaceholderResolver;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.View;
@@ -86,16 +90,21 @@ import org.springframework.web.util.HtmlUtils;
 @ConditionalOnClass({ Servlet.class, DispatcherServlet.class })
 // Load before the main WebMvcAutoConfiguration so that the error View is available
 @AutoConfigureBefore(WebMvcAutoConfiguration.class)
-@EnableConfigurationProperties({ ServerProperties.class, ResourceProperties.class })
+@EnableConfigurationProperties({ ServerProperties.class, ResourceProperties.class,
+		WebMvcProperties.class })
 public class ErrorMvcAutoConfiguration {
 
 	private final ServerProperties serverProperties;
 
+	private final WebMvcProperties webMvcProperties;
+
 	private final List<ErrorViewResolver> errorViewResolvers;
 
 	public ErrorMvcAutoConfiguration(ServerProperties serverProperties,
+			WebMvcProperties webMvcProperties,
 			ObjectProvider<List<ErrorViewResolver>> errorViewResolversProvider) {
 		this.serverProperties = serverProperties;
+		this.webMvcProperties = webMvcProperties;
 		this.errorViewResolvers = errorViewResolversProvider.getIfAvailable();
 	}
 
@@ -115,7 +124,7 @@ public class ErrorMvcAutoConfiguration {
 
 	@Bean
 	public ErrorPageCustomizer errorPageCustomizer() {
-		return new ErrorPageCustomizer(this.serverProperties);
+		return new ErrorPageCustomizer(this.serverProperties, this.webMvcProperties);
 	}
 
 	@Bean
@@ -167,7 +176,7 @@ public class ErrorMvcAutoConfiguration {
 		// If the user adds @EnableWebMvc then the bean name view resolver from
 		// WebMvcAutoConfiguration disappears, so add it back in to avoid disappointment.
 		@Bean
-		@ConditionalOnMissingBean(BeanNameViewResolver.class)
+		@ConditionalOnMissingBean
 		public BeanNameViewResolver beanNameViewResolver() {
 			BeanNameViewResolver resolver = new BeanNameViewResolver();
 			resolver.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
@@ -206,6 +215,8 @@ public class ErrorMvcAutoConfiguration {
 	 */
 	private static class SpelView implements View {
 
+		private static final Log logger = LogFactory.getLog(SpelView.class);
+
 		private final NonRecursivePropertyPlaceholderHelper helper;
 
 		private final String template;
@@ -225,14 +236,29 @@ public class ErrorMvcAutoConfiguration {
 		@Override
 		public void render(Map<String, ?> model, HttpServletRequest request,
 				HttpServletResponse response) throws Exception {
+			if (response.isCommitted()) {
+				String message = getMessage(model);
+				logger.error(message);
+				return;
+			}
 			if (response.getContentType() == null) {
 				response.setContentType(getContentType());
 			}
-			Map<String, Object> map = new HashMap<>(model);
-			map.put("path", request.getContextPath());
-			PlaceholderResolver resolver = new ExpressionResolver(getExpressions(), map);
+			PlaceholderResolver resolver = new ExpressionResolver(getExpressions(),
+					model);
 			String result = this.helper.replacePlaceholders(this.template, resolver);
 			response.getWriter().append(result);
+		}
+
+		private String getMessage(Map<String, ?> model) {
+			Object path = model.get("path");
+			String message = "Cannot render error page for request [" + path + "]";
+			if (model.get("message") != null) {
+				message += " and exception [" + model.get("message") + "]";
+			}
+			message += " as the response has already been committed.";
+			message += " As a result, the response may have the wrong status code.";
+			return message;
 		}
 
 		private Map<String, Expression> getExpressions() {
@@ -284,20 +310,18 @@ public class ErrorMvcAutoConfiguration {
 		}
 
 		private EvaluationContext getContext(Map<String, ?> map) {
-			StandardEvaluationContext context = new StandardEvaluationContext();
-			context.addPropertyAccessor(new MapAccessor());
-			context.setRootObject(map);
-			return context;
+			return SimpleEvaluationContext.forPropertyAccessors(new MapAccessor())
+					.withRootObject(map).build();
 		}
 
 		@Override
 		public String resolvePlaceholder(String placeholderName) {
 			Expression expression = this.expressions.get(placeholderName);
-			return escape(expression == null ? null : expression.getValue(this.context));
+			return escape(expression != null ? expression.getValue(this.context) : null);
 		}
 
 		private String escape(Object value) {
-			return HtmlUtils.htmlEscape(value == null ? null : value.toString());
+			return HtmlUtils.htmlEscape(value != null ? value.toString() : null);
 		}
 
 	}
@@ -307,17 +331,21 @@ public class ErrorMvcAutoConfiguration {
 	 */
 	private static class ErrorPageCustomizer implements ErrorPageRegistrar, Ordered {
 
-		private final ServerProperties properties;
+		private final ServerProperties serverProperties;
 
-		protected ErrorPageCustomizer(ServerProperties properties) {
-			this.properties = properties;
+		private final WebMvcProperties webMvcProperties;
+
+		protected ErrorPageCustomizer(ServerProperties serverProperties,
+				WebMvcProperties webMvcProperties) {
+			this.serverProperties = serverProperties;
+			this.webMvcProperties = webMvcProperties;
 		}
 
 		@Override
 		public void registerErrorPages(ErrorPageRegistry errorPageRegistry) {
 			ErrorPage errorPage = new ErrorPage(
-					this.properties.getServlet().getServletPrefix()
-							+ this.properties.getError().getPath());
+					this.webMvcProperties.getServlet().getServletPrefix()
+							+ this.serverProperties.getError().getPath());
 			errorPageRegistry.addErrorPages(errorPage);
 		}
 

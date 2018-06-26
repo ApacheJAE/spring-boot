@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@ package org.springframework.boot.web.embedded.netty;
 import java.net.URL;
 import java.security.KeyStore;
 import java.util.Arrays;
+import java.util.function.Consumer;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
-import reactor.ipc.netty.http.server.HttpServerOptions;
+import reactor.netty.http.server.HttpServer;
 
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.boot.web.server.SslStoreProvider;
@@ -48,22 +50,34 @@ public class SslServerCustomizer implements NettyServerCustomizer {
 	}
 
 	@Override
-	public void customize(HttpServerOptions.Builder builder) {
-		SslContextBuilder sslBuilder = SslContextBuilder
-				.forServer(getKeyManagerFactory(this.ssl, this.sslStoreProvider))
-				.trustManager(getTrustManagerFactory(this.ssl, this.sslStoreProvider));
-		if (this.ssl.getEnabledProtocols() != null) {
-			sslBuilder.protocols(this.ssl.getEnabledProtocols());
-		}
-		if (this.ssl.getCiphers() != null) {
-			sslBuilder = sslBuilder.ciphers(Arrays.asList(this.ssl.getCiphers()));
-		}
+	public HttpServer apply(HttpServer server) {
 		try {
-			builder.sslContext(sslBuilder.build());
+			return server.secure((contextSpec) -> contextSpec.forServer()
+					.sslContext(getContextBuilderConsumer()));
 		}
 		catch (Exception ex) {
 			throw new IllegalStateException(ex);
 		}
+	}
+
+	protected Consumer<SslContextBuilder> getContextBuilderConsumer() {
+		return (builder) -> {
+			builder.keyManager(getKeyManagerFactory(this.ssl, this.sslStoreProvider))
+					.trustManager(
+							getTrustManagerFactory(this.ssl, this.sslStoreProvider));
+			if (this.ssl.getEnabledProtocols() != null) {
+				builder.protocols(this.ssl.getEnabledProtocols());
+			}
+			if (this.ssl.getCiphers() != null) {
+				builder.ciphers(Arrays.asList(this.ssl.getCiphers()));
+			}
+			if (this.ssl.getClientAuth() == Ssl.ClientAuth.NEED) {
+				builder.clientAuth(ClientAuth.REQUIRE);
+			}
+			else if (this.ssl.getClientAuth() == Ssl.ClientAuth.WANT) {
+				builder.clientAuth(ClientAuth.OPTIONAL);
+			}
+		};
 	}
 
 	protected KeyManagerFactory getKeyManagerFactory(Ssl ssl,
@@ -119,13 +133,14 @@ public class SslServerCustomizer implements NettyServerCustomizer {
 
 	private KeyStore loadKeyStore(String type, String resource, String password)
 			throws Exception {
-		type = (type == null ? "JKS" : type);
+		type = (type != null ? type : "JKS");
 		if (resource == null) {
 			return null;
 		}
 		KeyStore store = KeyStore.getInstance(type);
 		URL url = ResourceUtils.getURL(resource);
-		store.load(url.openStream(), password == null ? null : password.toCharArray());
+		store.load(url.openStream(), password != null ? password.toCharArray() : null);
 		return store;
 	}
+
 }

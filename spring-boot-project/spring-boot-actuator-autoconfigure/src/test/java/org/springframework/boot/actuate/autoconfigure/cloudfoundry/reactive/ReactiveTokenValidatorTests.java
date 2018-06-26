@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,9 @@ import java.security.Signature;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.codec.binary.Base64;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -80,12 +79,12 @@ public class ReactiveTokenValidatorTests {
 			+ "r3F7aM9YpErzeYLrl0GhQr9BVJxOvXcVd4kmY+XkiCcrkyS1cnghnllh+LCwQu1s\n"
 			+ "YwIDAQAB\n-----END PUBLIC KEY-----";
 
-	private static final Map<String, String> INVALID_KEYS = new LinkedHashMap<>();
+	private static final Map<String, String> INVALID_KEYS = new ConcurrentHashMap<>();
 
-	private static final Map<String, String> VALID_KEYS = new LinkedHashMap<>();
+	private static final Map<String, String> VALID_KEYS = new ConcurrentHashMap<>();
 
 	@Before
-	public void setup() throws Exception {
+	public void setup() {
 		MockitoAnnotations.initMocks(this);
 		VALID_KEYS.put("valid-key", VALID_KEY);
 		INVALID_KEYS.put("invalid-key", INVALID_KEY);
@@ -337,7 +336,8 @@ public class ReactiveTokenValidatorTests {
 				+ "J/OOn5zOs8yf26os0q3+JUM=\n-----END PRIVATE KEY-----";
 		String privateKey = signingKey.replace("-----BEGIN PRIVATE KEY-----\n", "");
 		privateKey = privateKey.replace("-----END PRIVATE KEY-----", "");
-		byte[] pkcs8EncodedBytes = Base64.decodeBase64(privateKey);
+		privateKey = privateKey.replace("\n", "");
+		byte[] pkcs8EncodedBytes = Base64Utils.decodeFromString(privateKey);
 		PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(pkcs8EncodedBytes);
 		KeyFactory keyFactory = KeyFactory.getInstance("RSA");
 		return keyFactory.generatePrivate(keySpec);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.boot.web.embedded.undertow;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 
 import io.undertow.Undertow.Builder;
@@ -49,6 +51,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -95,7 +99,7 @@ public class UndertowServletWebServerFactoryTests
 	}
 
 	@Test
-	public void builderCustomizers() throws Exception {
+	public void builderCustomizers() {
 		UndertowServletWebServerFactory factory = getFactory();
 		UndertowBuilderCustomizer[] customizers = new UndertowBuilderCustomizer[4];
 		for (int i = 0; i < customizers.length; i++) {
@@ -106,7 +110,7 @@ public class UndertowServletWebServerFactoryTests
 		this.webServer = factory.getWebServer();
 		InOrder ordered = inOrder((Object[]) customizers);
 		for (UndertowBuilderCustomizer customizer : customizers) {
-			ordered.verify(customizer).customize((Builder) any());
+			ordered.verify(customizer).customize(any(Builder.class));
 		}
 	}
 
@@ -127,7 +131,7 @@ public class UndertowServletWebServerFactoryTests
 	}
 
 	@Test
-	public void deploymentInfo() throws Exception {
+	public void deploymentInfo() {
 		UndertowServletWebServerFactory factory = getFactory();
 		UndertowDeploymentInfoCustomizer[] customizers = new UndertowDeploymentInfoCustomizer[4];
 		for (int i = 0; i < customizers.length; i++) {
@@ -139,7 +143,7 @@ public class UndertowServletWebServerFactoryTests
 		this.webServer = factory.getWebServer();
 		InOrder ordered = inOrder((Object[]) customizers);
 		for (UndertowDeploymentInfoCustomizer customizer : customizers) {
-			ordered.verify(customizer).customize((DeploymentInfo) any());
+			ordered.verify(customizer).customize(any(DeploymentInfo.class));
 		}
 	}
 
@@ -149,7 +153,7 @@ public class UndertowServletWebServerFactoryTests
 	}
 
 	@Test
-	public void defaultContextPath() throws Exception {
+	public void defaultContextPath() {
 		UndertowServletWebServerFactory factory = getFactory();
 		final AtomicReference<String> contextPath = new AtomicReference<>();
 		factory.addDeploymentInfoCustomizers(
@@ -202,19 +206,23 @@ public class UndertowServletWebServerFactoryTests
 	}
 
 	@Override
-	protected void addConnector(final int port, AbstractServletWebServerFactory factory) {
+	protected void addConnector(int port, AbstractServletWebServerFactory factory) {
 		((UndertowServletWebServerFactory) factory).addBuilderCustomizers(
 				(builder) -> builder.addHttpListener(port, "0.0.0.0"));
 	}
 
-	@Test(expected = SSLHandshakeException.class)
+	@Test
 	public void sslRestrictedProtocolsEmptyCipherFailure() throws Exception {
+		this.thrown.expect(anyOf(instanceOf(SSLHandshakeException.class),
+				instanceOf(SocketException.class)));
 		testRestrictedSSLProtocolsAndCipherSuites(new String[] { "TLSv1.2" },
 				new String[] { "TLS_EMPTY_RENEGOTIATION_INFO_SCSV" });
 	}
 
-	@Test(expected = SSLHandshakeException.class)
+	@Test
 	public void sslRestrictedProtocolsECDHETLS1Failure() throws Exception {
+		this.thrown.expect(
+				anyOf(instanceOf(SSLException.class), instanceOf(SocketException.class)));
 		testRestrictedSSLProtocolsAndCipherSuites(new String[] { "TLSv1" },
 				new String[] { "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256" });
 	}
@@ -231,8 +239,10 @@ public class UndertowServletWebServerFactoryTests
 				new String[] { "TLS_RSA_WITH_AES_128_CBC_SHA256" });
 	}
 
-	@Test(expected = SSLHandshakeException.class)
+	@Test
 	public void sslRestrictedProtocolsRSATLS11Failure() throws Exception {
+		this.thrown.expect(
+				anyOf(instanceOf(SSLException.class), instanceOf(SocketException.class)));
 		testRestrictedSSLProtocolsAndCipherSuites(new String[] { "TLSv1.1" },
 				new String[] { "TLS_RSA_WITH_AES_128_CBC_SHA256" });
 	}
@@ -281,7 +291,7 @@ public class UndertowServletWebServerFactoryTests
 		DeploymentInfo info = ((DeploymentManager) ReflectionTestUtils
 				.getField(this.webServer, "manager")).getDeployment().getDeploymentInfo();
 		String charsetName = info.getLocaleCharsetMapping().get(locale.toString());
-		return (charsetName != null) ? Charset.forName(charsetName) : null;
+		return (charsetName != null ? Charset.forName(charsetName) : null);
 	}
 
 	@Override

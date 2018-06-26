@@ -29,11 +29,15 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.web.ErrorProperties;
 import org.springframework.boot.devtools.restart.RestartInitializer;
 import org.springframework.boot.devtools.restart.Restarter;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.ConfigurableEnvironment;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for the configuration of development-time properties
@@ -79,8 +83,7 @@ public class DevToolPropertiesIntegrationTests {
 	}
 
 	@Test
-	public void postProcessWhenRestarterDisabledAndRemoteSecretNotSetShouldNotAddPropertySource()
-			throws Exception {
+	public void postProcessWhenRestarterDisabledAndRemoteSecretNotSetShouldNotAddPropertySource() {
 		Restarter.clearInstance();
 		Restarter.disable();
 		SpringApplication application = new SpringApplication(
@@ -92,8 +95,7 @@ public class DevToolPropertiesIntegrationTests {
 	}
 
 	@Test
-	public void postProcessWhenRestarterDisabledAndRemoteSecretSetShouldAddPropertySource()
-			throws Exception {
+	public void postProcessWhenRestarterDisabledAndRemoteSecretSetShouldAddPropertySource() {
 		Restarter.clearInstance();
 		Restarter.disable();
 		SpringApplication application = new SpringApplication(
@@ -103,6 +105,22 @@ public class DevToolPropertiesIntegrationTests {
 				Collections.singletonMap("spring.devtools.remote.secret", "donttell"));
 		this.context = application.run();
 		this.context.getBean(MyBean.class);
+	}
+
+	@Test
+	public void postProcessEnablesIncludeStackTraceProperty() {
+		SpringApplication application = new SpringApplication(TestConfiguration.class);
+		application.setWebApplicationType(WebApplicationType.NONE);
+		this.context = application.run();
+		ConfigurableEnvironment environment = this.context.getEnvironment();
+		String property = environment.getProperty("server.error.include-stacktrace");
+		assertThat(property)
+				.isEqualTo(ErrorProperties.IncludeStacktrace.ALWAYS.toString());
+	}
+
+	@Configuration
+	static class TestConfiguration {
+
 	}
 
 	@Configuration

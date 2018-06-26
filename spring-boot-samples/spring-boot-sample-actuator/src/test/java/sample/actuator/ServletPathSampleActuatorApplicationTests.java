@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,14 +38,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
-		"server.servlet.path=/spring" })
+		"spring.mvc.servlet.path=/spring" })
 public class ServletPathSampleActuatorApplicationTests {
 
 	@Autowired
 	private TestRestTemplate restTemplate;
 
 	@Test
-	public void testErrorPath() throws Exception {
+	public void testErrorPath() {
 		@SuppressWarnings("rawtypes")
 		ResponseEntity<Map> entity = this.restTemplate
 				.withBasicAuth("user", getPassword())
@@ -58,7 +58,7 @@ public class ServletPathSampleActuatorApplicationTests {
 	}
 
 	@Test
-	public void testHealth() throws Exception {
+	public void testHealth() {
 		ResponseEntity<String> entity = this.restTemplate
 				.withBasicAuth("user", getPassword())
 				.getForEntity("/spring/actuator/health", String.class);
@@ -67,7 +67,7 @@ public class ServletPathSampleActuatorApplicationTests {
 	}
 
 	@Test
-	public void testHomeIsSecure() throws Exception {
+	public void testHomeIsSecure() {
 		@SuppressWarnings("rawtypes")
 		ResponseEntity<Map> entity = this.restTemplate.getForEntity("/spring/",
 				Map.class);

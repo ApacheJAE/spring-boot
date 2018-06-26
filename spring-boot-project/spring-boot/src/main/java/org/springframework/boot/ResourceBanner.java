@@ -62,7 +62,7 @@ public class ResourceBanner implements Banner {
 			PrintStream out) {
 		try {
 			String banner = StreamUtils.copyToString(this.resource.getInputStream(),
-					environment.getProperty("banner.charset", Charset.class,
+					environment.getProperty("spring.banner.charset", Charset.class,
 							StandardCharsets.UTF_8));
 
 			for (PropertyResolver resolver : getPropertyResolvers(environment,
@@ -107,8 +107,8 @@ public class ResourceBanner implements Banner {
 	}
 
 	protected String getApplicationVersion(Class<?> sourceClass) {
-		Package sourcePackage = (sourceClass == null ? null : sourceClass.getPackage());
-		return (sourcePackage == null ? null : sourcePackage.getImplementationVersion());
+		Package sourcePackage = (sourceClass != null ? sourceClass.getPackage() : null);
+		return (sourcePackage != null ? sourcePackage.getImplementationVersion() : null);
 	}
 
 	protected String getBootVersion() {
@@ -132,14 +132,14 @@ public class ResourceBanner implements Banner {
 		MutablePropertySources sources = new MutablePropertySources();
 		String applicationTitle = getApplicationTitle(sourceClass);
 		Map<String, Object> titleMap = Collections.singletonMap("application.title",
-				(applicationTitle == null ? "" : applicationTitle));
+				(applicationTitle != null ? applicationTitle : ""));
 		sources.addFirst(new MapPropertySource("title", titleMap));
 		return new PropertySourcesPropertyResolver(sources);
 	}
 
 	protected String getApplicationTitle(Class<?> sourceClass) {
-		Package sourcePackage = (sourceClass == null ? null : sourceClass.getPackage());
-		return (sourcePackage == null ? null : sourcePackage.getImplementationTitle());
+		Package sourcePackage = (sourceClass != null ? sourceClass.getPackage() : null);
+		return (sourcePackage != null ? sourcePackage.getImplementationTitle() : null);
 	}
 
 }

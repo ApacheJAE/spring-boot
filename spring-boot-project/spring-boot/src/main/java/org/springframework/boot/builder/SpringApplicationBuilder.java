@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.util.StringUtils;
 
 /**
  * Builder for {@link SpringApplication} and {@link ApplicationContext} instances with
@@ -188,7 +189,7 @@ public class SpringApplicationBuilder {
 		// It's not possible if embedded web server are enabled to support web contexts as
 		// parents because the servlets cannot be initialized at the right point in
 		// lifecycle.
-		web(false);
+		web(WebApplicationType.NONE);
 
 		// Probably not interested in multiple banners
 		bannerMode(Banner.Mode.OFF);
@@ -207,8 +208,9 @@ public class SpringApplicationBuilder {
 	 */
 	public SpringApplicationBuilder parent(Class<?>... sources) {
 		if (this.parent == null) {
-			this.parent = new SpringApplicationBuilder(sources).web(false)
-					.properties(this.defaultProperties).environment(this.environment);
+			this.parent = new SpringApplicationBuilder(sources)
+					.web(WebApplicationType.NONE).properties(this.defaultProperties)
+					.environment(this.environment);
 		}
 		else {
 			this.parent.sources(sources);
@@ -283,19 +285,6 @@ public class SpringApplicationBuilder {
 	 */
 	public SpringApplicationBuilder sources(Class<?>... sources) {
 		this.sources.addAll(new LinkedHashSet<>(Arrays.asList(sources)));
-		return this;
-	}
-
-	/**
-	 * Flag to explicitly request a web or non-web environment (auto detected based on
-	 * classpath if not set).
-	 * @param webEnvironment the flag to set
-	 * @return the current builder
-	 * @deprecated since 2.0.0 in favour of {@link #web(WebApplicationType)}
-	 */
-	@Deprecated
-	public SpringApplicationBuilder web(boolean webEnvironment) {
-		this.application.setWebEnvironment(webEnvironment);
 		return this;
 	}
 
@@ -407,7 +396,7 @@ public class SpringApplicationBuilder {
 		for (String candidate : candidates) {
 			int candidateIndex = property.indexOf(candidate);
 			if (candidateIndex > 0) {
-				index = (index == -1 ? candidateIndex : Math.min(index, candidateIndex));
+				index = (index != -1 ? Math.min(index, candidateIndex) : candidateIndex);
 			}
 		}
 		return index;
@@ -424,7 +413,7 @@ public class SpringApplicationBuilder {
 	}
 
 	private Map<String, Object> getMapFromProperties(Properties properties) {
-		HashMap<String, Object> map = new HashMap<>();
+		Map<String, Object> map = new HashMap<>();
 		for (Object key : Collections.list(properties.propertyNames())) {
 			map.put((String) key, properties.get(key));
 		}
@@ -455,16 +444,16 @@ public class SpringApplicationBuilder {
 	 */
 	public SpringApplicationBuilder profiles(String... profiles) {
 		this.additionalProfiles.addAll(Arrays.asList(profiles));
-		this.application.setAdditionalProfiles(this.additionalProfiles
-				.toArray(new String[this.additionalProfiles.size()]));
+		this.application.setAdditionalProfiles(
+				StringUtils.toStringArray(this.additionalProfiles));
 		return this;
 	}
 
 	private SpringApplicationBuilder additionalProfiles(
 			Collection<String> additionalProfiles) {
 		this.additionalProfiles = new LinkedHashSet<>(additionalProfiles);
-		this.application.setAdditionalProfiles(this.additionalProfiles
-				.toArray(new String[this.additionalProfiles.size()]));
+		this.application.setAdditionalProfiles(
+				StringUtils.toStringArray(this.additionalProfiles));
 		return this;
 	}
 

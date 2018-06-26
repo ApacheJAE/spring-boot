@@ -55,7 +55,6 @@ public final class JsonContent<T> implements AssertProvider<JsonContentAssert> {
 	/**
 	 * Use AssertJ's {@link org.assertj.core.api.Assertions#assertThat assertThat}
 	 * instead.
-	 *
 	 * @deprecated in favor of AssertJ's {@link org.assertj.core.api.Assertions#assertThat
 	 * assertThat}
 	 */
@@ -76,7 +75,7 @@ public final class JsonContent<T> implements AssertProvider<JsonContentAssert> {
 	@Override
 	public String toString() {
 		return "JsonContent " + this.json
-				+ (this.type == null ? "" : " created from " + this.type);
+				+ (this.type != null ? " created from " + this.type : "");
 	}
 
 }

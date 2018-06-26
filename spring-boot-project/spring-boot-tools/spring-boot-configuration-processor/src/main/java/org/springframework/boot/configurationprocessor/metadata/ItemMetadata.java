@@ -16,6 +16,8 @@
 
 package org.springframework.boot.configurationprocessor.metadata;
 
+import java.util.Locale;
+
 /**
  * A group or property meta-data item from some {@link ConfigurationMetadata}.
  *
@@ -59,11 +61,11 @@ public final class ItemMetadata implements Comparable<ItemMetadata> {
 		while (prefix != null && prefix.endsWith(".")) {
 			prefix = prefix.substring(0, prefix.length() - 1);
 		}
-		StringBuilder fullName = new StringBuilder(prefix == null ? "" : prefix);
+		StringBuilder fullName = new StringBuilder(prefix != null ? prefix : "");
 		if (fullName.length() > 0 && name != null) {
 			fullName.append(".");
 		}
-		fullName.append(name == null ? "" : ConfigurationMetadata.toDashedCase(name));
+		fullName.append(name != null ? ConfigurationMetadata.toDashedCase(name) : "");
 		return fullName.toString();
 	}
 
@@ -194,7 +196,7 @@ public final class ItemMetadata implements Comparable<ItemMetadata> {
 	}
 
 	private int nullSafeHashCode(Object o) {
-		return (o == null ? 0 : o.hashCode());
+		return (o != null ? o.hashCode() : 0);
 	}
 
 	@Override
@@ -213,6 +215,11 @@ public final class ItemMetadata implements Comparable<ItemMetadata> {
 			Object defaultValue, ItemDeprecation deprecation) {
 		return new ItemMetadata(ItemType.PROPERTY, prefix, name, type, sourceType,
 				sourceMethod, description, defaultValue, deprecation);
+	}
+
+	public static String newItemMetadataPrefix(String prefix, String suffix) {
+		return prefix.toLowerCase(Locale.ENGLISH)
+				+ ConfigurationMetadata.toDashedCase(suffix);
 	}
 
 	/**

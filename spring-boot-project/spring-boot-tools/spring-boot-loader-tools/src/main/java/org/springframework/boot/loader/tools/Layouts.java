@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.boot.loader.tools;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -42,7 +43,7 @@ public final class Layouts {
 		if (file == null) {
 			throw new IllegalArgumentException("File must not be null");
 		}
-		String lowerCaseFileName = file.getName().toLowerCase();
+		String lowerCaseFileName = file.getName().toLowerCase(Locale.ENGLISH);
 		if (lowerCaseFileName.endsWith(".jar")) {
 			return new Jar();
 		}
@@ -121,7 +122,7 @@ public final class Layouts {
 	 */
 	public static class War implements Layout {
 
-		private static final Map<LibraryScope, String> scopeDestinations;
+		private static final Map<LibraryScope, String> SCOPE_DESTINATIONS;
 
 		static {
 			Map<LibraryScope, String> map = new HashMap<>();
@@ -129,7 +130,7 @@ public final class Layouts {
 			map.put(LibraryScope.CUSTOM, "WEB-INF/lib/");
 			map.put(LibraryScope.RUNTIME, "WEB-INF/lib/");
 			map.put(LibraryScope.PROVIDED, "WEB-INF/lib-provided/");
-			scopeDestinations = Collections.unmodifiableMap(map);
+			SCOPE_DESTINATIONS = Collections.unmodifiableMap(map);
 		}
 
 		@Override
@@ -139,7 +140,7 @@ public final class Layouts {
 
 		@Override
 		public String getLibraryDestination(String libraryName, LibraryScope scope) {
-			return scopeDestinations.get(scope);
+			return SCOPE_DESTINATIONS.get(scope);
 		}
 
 		@Override

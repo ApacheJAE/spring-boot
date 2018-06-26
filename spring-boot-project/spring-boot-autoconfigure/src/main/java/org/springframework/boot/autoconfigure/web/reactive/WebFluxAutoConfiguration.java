@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +34,11 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.http.codec.CodecsAutoConfiguration;
+import org.springframework.boot.autoconfigure.validation.ValidationAutoConfiguration;
 import org.springframework.boot.autoconfigure.validation.ValidatorAdapter;
 import org.springframework.boot.autoconfigure.web.ConditionalOnEnabledResourceChain;
 import org.springframework.boot.autoconfigure.web.ResourceProperties;
+import org.springframework.boot.autoconfigure.web.format.WebConversionService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.codec.CodecCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -48,6 +50,7 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.convert.converter.GenericConverter;
 import org.springframework.format.Formatter;
 import org.springframework.format.FormatterRegistry;
+import org.springframework.format.support.FormattingConversionService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.codec.ServerCodecConfigurer;
 import org.springframework.util.ClassUtils;
@@ -61,7 +64,7 @@ import org.springframework.web.reactive.config.ViewResolverRegistry;
 import org.springframework.web.reactive.config.WebFluxConfigurationSupport;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
 import org.springframework.web.reactive.resource.AppCacheManifestTransformer;
-import org.springframework.web.reactive.resource.GzipResourceResolver;
+import org.springframework.web.reactive.resource.EncodedResourceResolver;
 import org.springframework.web.reactive.resource.ResourceResolver;
 import org.springframework.web.reactive.resource.VersionResourceResolver;
 import org.springframework.web.reactive.result.method.HandlerMethodArgumentResolver;
@@ -83,8 +86,8 @@ import org.springframework.web.reactive.result.view.ViewResolver;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @ConditionalOnClass(WebFluxConfigurer.class)
 @ConditionalOnMissingBean({ WebFluxConfigurationSupport.class })
-@AutoConfigureAfter({ ReactiveWebServerAutoConfiguration.class,
-		CodecsAutoConfiguration.class })
+@AutoConfigureAfter({ ReactiveWebServerFactoryAutoConfiguration.class,
+		CodecsAutoConfiguration.class, ValidationAutoConfiguration.class })
 @AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE + 10)
 public class WebFluxAutoConfiguration {
 
@@ -179,7 +182,7 @@ public class WebFluxAutoConfiguration {
 		}
 
 		@Override
-		public void addFormatters(final FormatterRegistry registry) {
+		public void addFormatters(FormatterRegistry registry) {
 			for (Converter<?, ?> converter : getBeansOfType(Converter.class)) {
 				registry.addConverter(converter);
 			}
@@ -202,6 +205,7 @@ public class WebFluxAutoConfiguration {
 			}
 
 		}
+
 	}
 
 	/**
@@ -211,8 +215,23 @@ public class WebFluxAutoConfiguration {
 	public static class EnableWebFluxConfiguration
 			extends DelegatingWebFluxConfiguration {
 
-		@Override
+		private final WebFluxProperties webFluxProperties;
+
+		public EnableWebFluxConfiguration(WebFluxProperties webFluxProperties) {
+			this.webFluxProperties = webFluxProperties;
+		}
+
 		@Bean
+		@Override
+		public FormattingConversionService webFluxConversionService() {
+			WebConversionService conversionService = new WebConversionService(
+					this.webFluxProperties.getDateFormat());
+			addFormatters(conversionService);
+			return conversionService;
+		}
+
+		@Bean
+		@Override
 		public Validator webFluxValidator() {
 			if (!ClassUtils.isPresent("javax.validation.Validator",
 					getClass().getClassLoader())) {
@@ -256,11 +275,11 @@ public class WebFluxAutoConfiguration {
 		private void configureResourceChain(ResourceProperties.Chain properties,
 				ResourceChainRegistration chain) {
 			ResourceProperties.Strategy strategy = properties.getStrategy();
+			if (properties.isCompressed()) {
+				chain.addResolver(new EncodedResourceResolver());
+			}
 			if (strategy.getFixed().isEnabled() || strategy.getContent().isEnabled()) {
 				chain.addResolver(getVersionResourceResolver(strategy));
-			}
-			if (properties.isGzipped()) {
-				chain.addResolver(new GzipResourceResolver());
 			}
 			if (properties.isHtmlApplicationCache()) {
 				chain.addTransformer(new AppCacheManifestTransformer());

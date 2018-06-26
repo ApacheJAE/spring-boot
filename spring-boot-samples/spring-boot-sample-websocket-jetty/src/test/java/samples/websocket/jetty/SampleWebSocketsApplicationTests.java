@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,12 +54,12 @@ public class SampleWebSocketsApplicationTests {
 	private int port = 1234;
 
 	@Test
-	public void echoEndpoint() throws Exception {
+	public void echoEndpoint() {
 		ConfigurableApplicationContext context = new SpringApplicationBuilder(
 				ClientConfiguration.class, PropertyPlaceholderAutoConfiguration.class)
 						.properties("websocket.uri:ws://localhost:" + this.port
 								+ "/echo/websocket")
-						.run("--spring.main.web_environment=false");
+						.run("--spring.main.web-application-type=none");
 		long count = context.getBean(ClientConfiguration.class).latch.getCount();
 		AtomicReference<String> messagePayloadReference = context
 				.getBean(ClientConfiguration.class).messagePayload;
@@ -70,12 +70,12 @@ public class SampleWebSocketsApplicationTests {
 	}
 
 	@Test
-	public void reverseEndpoint() throws Exception {
+	public void reverseEndpoint() {
 		ConfigurableApplicationContext context = new SpringApplicationBuilder(
 				ClientConfiguration.class, PropertyPlaceholderAutoConfiguration.class)
 						.properties(
 								"websocket.uri:ws://localhost:" + this.port + "/reverse")
-						.run("--spring.main.web_environment=false");
+						.run("--spring.main.web-application-type=none");
 		long count = context.getBean(ClientConfiguration.class).latch.getCount();
 		AtomicReference<String> messagePayloadReference = context
 				.getBean(ClientConfiguration.class).messagePayload;
@@ -130,6 +130,7 @@ public class SampleWebSocketsApplicationTests {
 		public GreetingService greetingService() {
 			return new SimpleGreetingService();
 		}
+
 	}
 
 }

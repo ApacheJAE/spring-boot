@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * {@link URLStreamHandler} for Spring Boot loader {@link JarFile}s.
@@ -49,6 +50,8 @@ public class Handler extends URLStreamHandler {
 	private static final String SEPARATOR = "!/";
 
 	private static final String CURRENT_DIR = "/./";
+
+	private static final Pattern CURRENT_DIR_PATTERN = Pattern.compile(CURRENT_DIR);
 
 	private static final String PARENT_DIR = "/../";
 
@@ -89,7 +92,8 @@ public class Handler extends URLStreamHandler {
 
 	@Override
 	protected URLConnection openConnection(URL url) throws IOException {
-		if (this.jarFile != null) {
+		if (this.jarFile != null
+				&& url.toString().startsWith(this.jarFile.getUrl().toString())) {
 			return JarURLConnection.get(url, this.jarFile);
 		}
 		try {
@@ -159,7 +163,7 @@ public class Handler extends URLStreamHandler {
 
 	@Override
 	protected void parseURL(URL context, String spec, int start, int limit) {
-		if (spec.toLowerCase().startsWith(JAR_PROTOCOL)) {
+		if (spec.regionMatches(true, 0, JAR_PROTOCOL, 0, JAR_PROTOCOL.length())) {
 			setFile(context, getFileFromSpec(spec.substring(start, limit)));
 		}
 		else {
@@ -237,7 +241,7 @@ public class Handler extends URLStreamHandler {
 	}
 
 	private String replaceCurrentDir(String file) {
-		return file.replace(CURRENT_DIR, "/");
+		return CURRENT_DIR_PATTERN.matcher(file).replaceAll("/");
 	}
 
 	@Override
@@ -246,7 +250,7 @@ public class Handler extends URLStreamHandler {
 	}
 
 	private int hashCode(String protocol, String file) {
-		int result = (protocol == null ? 0 : protocol.hashCode());
+		int result = (protocol != null ? protocol.hashCode() : 0);
 		int separatorIndex = file.indexOf(SEPARATOR);
 		if (separatorIndex == -1) {
 			return result + file.hashCode();
@@ -315,7 +319,7 @@ public class Handler extends URLStreamHandler {
 			String path = name.substring(FILE_PROTOCOL.length());
 			File file = new File(URLDecoder.decode(path, "UTF-8"));
 			Map<File, JarFile> cache = rootFileCache.get();
-			JarFile result = (cache == null ? null : cache.get(file));
+			JarFile result = (cache != null ? cache.get(file) : null);
 			if (result == null) {
 				result = new JarFile(file);
 				addToRootFileCache(file, result);

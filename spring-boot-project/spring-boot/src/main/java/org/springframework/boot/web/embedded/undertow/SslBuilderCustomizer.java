@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,8 +72,7 @@ class SslBuilderCustomizer implements UndertowBuilderCustomizer {
 			SSLContext sslContext = SSLContext.getInstance(this.ssl.getProtocol());
 			sslContext.init(getKeyManagers(this.ssl, this.sslStoreProvider),
 					getTrustManagers(this.ssl, this.sslStoreProvider), null);
-			builder.addHttpsListener(this.port, getListenAddress(this.address),
-					sslContext);
+			builder.addHttpsListener(this.port, getListenAddress(), sslContext);
 			builder.setSocketOption(Options.SSL_CLIENT_AUTH_MODE,
 					getSslClientAuthMode(this.ssl));
 			if (this.ssl.getEnabledProtocols() != null) {
@@ -93,7 +92,7 @@ class SslBuilderCustomizer implements UndertowBuilderCustomizer {
 		}
 	}
 
-	private String getListenAddress(InetAddress address) {
+	private String getListenAddress() {
 		if (this.address == null) {
 			return "0.0.0.0";
 		}
@@ -176,13 +175,13 @@ class SslBuilderCustomizer implements UndertowBuilderCustomizer {
 
 	private KeyStore loadKeyStore(String type, String resource, String password)
 			throws Exception {
-		type = (type == null ? "JKS" : type);
+		type = (type != null ? type : "JKS");
 		if (resource == null) {
 			return null;
 		}
 		KeyStore store = KeyStore.getInstance(type);
 		URL url = ResourceUtils.getURL(resource);
-		store.load(url.openStream(), password == null ? null : password.toCharArray());
+		store.load(url.openStream(), password != null ? password.toCharArray() : null);
 		return store;
 	}
 

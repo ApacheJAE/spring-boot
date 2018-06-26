@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -150,14 +150,14 @@ public class OptionHandler {
 
 	private static class OptionHelpAdapter implements OptionHelp {
 
-		private final LinkedHashSet<String> options;
+		private final Set<String> options;
 
 		private final String description;
 
 		OptionHelpAdapter(OptionDescriptor descriptor) {
 			this.options = new LinkedHashSet<>();
 			for (String option : descriptor.options()) {
-				this.options.add((option.length() == 1 ? "-" : "--") + option);
+				this.options.add((option.length() != 1 ? "--" : "-") + option);
 			}
 			if (this.options.contains("--cp")) {
 				this.options.remove("--cp");

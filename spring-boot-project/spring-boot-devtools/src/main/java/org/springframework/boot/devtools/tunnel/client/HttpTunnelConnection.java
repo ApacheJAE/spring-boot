@@ -88,8 +88,8 @@ public class HttpTunnelConnection implements TunnelConnection {
 			throw new IllegalArgumentException("Malformed URL '" + url + "'");
 		}
 		this.requestFactory = requestFactory;
-		this.executor = (executor == null
-				? Executors.newCachedThreadPool(new TunnelThreadFactory()) : executor);
+		this.executor = (executor != null ? executor
+				: Executors.newCachedThreadPool(new TunnelThreadFactory()));
 	}
 
 	@Override
@@ -147,7 +147,7 @@ public class HttpTunnelConnection implements TunnelConnection {
 			return size;
 		}
 
-		private void openNewConnection(final HttpTunnelPayload payload) {
+		private void openNewConnection(HttpTunnelPayload payload) {
 			HttpTunnelConnection.this.executor.execute(new Runnable() {
 
 				@Override

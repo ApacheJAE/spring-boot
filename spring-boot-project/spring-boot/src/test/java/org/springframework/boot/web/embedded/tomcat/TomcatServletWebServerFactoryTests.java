@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.boot.web.embedded.tomcat;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -44,11 +45,13 @@ import org.apache.catalina.core.StandardWrapper;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.catalina.util.CharsetMapper;
 import org.apache.catalina.valves.RemoteIpValve;
+import org.apache.catalina.webresources.TomcatURLStreamHandlerFactory;
 import org.apache.jasper.servlet.JspServlet;
 import org.apache.tomcat.JarScanFilter;
 import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 import org.springframework.boot.testsupport.rule.OutputCapture;
@@ -85,12 +88,15 @@ public class TomcatServletWebServerFactoryTests
 
 	@After
 	public void restoreTccl() {
+		ReflectionTestUtils.setField(TomcatURLStreamHandlerFactory.class, "instance",
+				null);
+		ReflectionTestUtils.setField(URL.class, "factory", null);
 		Thread.currentThread().setContextClassLoader(getClass().getClassLoader());
 	}
 
 	// JMX MBean names clash if you get more than one Engine with the same name...
 	@Test
-	public void tomcatEngineNames() throws Exception {
+	public void tomcatEngineNames() {
 		TomcatServletWebServerFactory factory = getFactory();
 		this.webServer = factory.getWebServer();
 		factory.setPort(0);
@@ -105,14 +111,14 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void defaultTomcatListeners() throws Exception {
+	public void defaultTomcatListeners() {
 		TomcatServletWebServerFactory factory = getFactory();
 		assertThat(factory.getContextLifecycleListeners()).hasSize(1).first()
 				.isInstanceOf(AprLifecycleListener.class);
 	}
 
 	@Test
-	public void tomcatListeners() throws Exception {
+	public void tomcatListeners() {
 		TomcatServletWebServerFactory factory = getFactory();
 		LifecycleListener[] listeners = new LifecycleListener[4];
 		for (int i = 0; i < listeners.length; i++) {
@@ -128,7 +134,7 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void tomcatCustomizers() throws Exception {
+	public void tomcatCustomizers() {
 		TomcatServletWebServerFactory factory = getFactory();
 		TomcatContextCustomizer[] listeners = new TomcatContextCustomizer[4];
 		for (int i = 0; i < listeners.length; i++) {
@@ -144,7 +150,18 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void tomcatConnectorCustomizers() throws Exception {
+	public void contextIsAddedToHostBeforeCustomizersAreCalled() {
+		TomcatServletWebServerFactory factory = getFactory();
+		TomcatContextCustomizer customizer = mock(TomcatContextCustomizer.class);
+		factory.addContextCustomizers(customizer);
+		this.webServer = factory.getWebServer();
+		ArgumentCaptor<Context> contextCaptor = ArgumentCaptor.forClass(Context.class);
+		verify(customizer).customize(contextCaptor.capture());
+		assertThat(contextCaptor.getValue().getParent()).isNotNull();
+	}
+
+	@Test
+	public void tomcatConnectorCustomizers() {
 		TomcatServletWebServerFactory factory = getFactory();
 		TomcatConnectorCustomizer[] listeners = new TomcatConnectorCustomizer[4];
 		for (int i = 0; i < listeners.length; i++) {
@@ -160,7 +177,7 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void tomcatAdditionalConnectors() throws Exception {
+	public void tomcatAdditionalConnectors() {
 		TomcatServletWebServerFactory factory = getFactory();
 		Connector[] listeners = new Connector[4];
 		for (int i = 0; i < listeners.length; i++) {
@@ -185,28 +202,28 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void sessionTimeout() throws Exception {
+	public void sessionTimeout() {
 		TomcatServletWebServerFactory factory = getFactory();
-		factory.setSessionTimeout(Duration.ofSeconds(10));
+		factory.getSession().setTimeout(Duration.ofSeconds(10));
 		assertTimeout(factory, 1);
 	}
 
 	@Test
-	public void sessionTimeoutInMins() throws Exception {
+	public void sessionTimeoutInMins() {
 		TomcatServletWebServerFactory factory = getFactory();
-		factory.setSessionTimeout(Duration.ofMinutes(1));
+		factory.getSession().setTimeout(Duration.ofMinutes(1));
 		assertTimeout(factory, 1);
 	}
 
 	@Test
-	public void noSessionTimeout() throws Exception {
+	public void noSessionTimeout() {
 		TomcatServletWebServerFactory factory = getFactory();
-		factory.setSessionTimeout(null);
+		factory.getSession().setTimeout(null);
 		assertTimeout(factory, -1);
 	}
 
 	@Test
-	public void valve() throws Exception {
+	public void valve() {
 		TomcatServletWebServerFactory factory = getFactory();
 		Valve valve = mock(Valve.class);
 		factory.addContextValves(valve);
@@ -247,7 +264,7 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void uriEncoding() throws Exception {
+	public void uriEncoding() {
 		TomcatServletWebServerFactory factory = getFactory();
 		factory.setUriEncoding(StandardCharsets.US_ASCII);
 		Tomcat tomcat = getTomcat(factory);
@@ -257,7 +274,7 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void defaultUriEncoding() throws Exception {
+	public void defaultUriEncoding() {
 		TomcatServletWebServerFactory factory = getFactory();
 		Tomcat tomcat = getTomcat(factory);
 		Connector connector = ((TomcatWebServer) this.webServer).getServiceConnectors()
@@ -267,7 +284,7 @@ public class TomcatServletWebServerFactoryTests
 
 	@Test
 	public void primaryConnectorPortClashThrowsIllegalStateException()
-			throws InterruptedException, IOException {
+			throws IOException {
 		doWithBlockedPort((port) -> {
 			TomcatServletWebServerFactory factory = getFactory();
 			factory.setPort(port);
@@ -292,7 +309,7 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void stopCalledWithoutStart() throws Exception {
+	public void stopCalledWithoutStart() {
 		TomcatServletWebServerFactory factory = getFactory();
 		this.webServer = factory.getWebServer(exampleServletRegistration());
 		this.webServer.stop();
@@ -361,7 +378,7 @@ public class TomcatServletWebServerFactoryTests
 	}
 
 	@Test
-	public void defaultLocaleCharsetMappingsAreOverriden() throws Exception {
+	public void defaultLocaleCharsetMappingsAreOverriden() {
 		TomcatServletWebServerFactory factory = getFactory();
 		this.webServer = factory.getWebServer();
 		// override defaults, see org.apache.catalina.util.CharsetMapperDefault.properties
@@ -390,7 +407,7 @@ public class TomcatServletWebServerFactoryTests
 
 	@Test
 	@SuppressWarnings("unchecked")
-	public void tldSkipPatternsShouldBeAppliedToContextJarScanner() throws Exception {
+	public void tldSkipPatternsShouldBeAppliedToContextJarScanner() {
 		TomcatServletWebServerFactory factory = getFactory();
 		factory.addTldSkipPatterns("foo.jar", "bar.jar");
 		this.webServer = factory.getWebServer();
@@ -401,6 +418,17 @@ public class TomcatServletWebServerFactoryTests
 		Set<String> tldSkipSet = (Set<String>) ReflectionTestUtils.getField(jarScanFilter,
 				"tldSkipSet");
 		assertThat(tldSkipSet).contains("foo.jar", "bar.jar");
+	}
+
+	@Test
+	public void customTomcatHttpOnlyCookie() {
+		TomcatServletWebServerFactory factory = getFactory();
+		factory.getSession().getCookie().setHttpOnly(false);
+		this.webServer = factory.getWebServer();
+		this.webServer.start();
+		Tomcat tomcat = ((TomcatWebServer) this.webServer).getTomcat();
+		Context context = (Context) tomcat.getHost().findChildren()[0];
+		assertThat(context.getUseHttpOnly()).isFalse();
 	}
 
 	@Override
@@ -430,7 +458,7 @@ public class TomcatServletWebServerFactoryTests
 				.getHost().findChildren()[0];
 		CharsetMapper mapper = ((TomcatEmbeddedContext) context).getCharsetMapper();
 		String charsetName = mapper.getCharset(locale);
-		return (charsetName != null) ? Charset.forName(charsetName) : null;
+		return (charsetName != null ? Charset.forName(charsetName) : null);
 	}
 
 	private void assertTimeout(TomcatServletWebServerFactory factory, int expected) {

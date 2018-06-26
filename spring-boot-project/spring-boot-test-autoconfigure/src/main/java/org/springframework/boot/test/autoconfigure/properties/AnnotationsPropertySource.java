@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -104,8 +105,8 @@ public class AnnotationsPropertySource extends EnumerablePropertySource<Class<?>
 		}
 		Annotation mergedAnnotation = AnnotatedElementUtils.getMergedAnnotation(source,
 				annotationType);
-		return mergedAnnotation != null ? mergedAnnotation
-				: findMergedAnnotation(source.getSuperclass(), annotationType);
+		return (mergedAnnotation != null ? mergedAnnotation
+				: findMergedAnnotation(source.getSuperclass(), annotationType));
 	}
 
 	private void collectProperties(Annotation annotation, Method attribute,
@@ -142,8 +143,8 @@ public class AnnotationsPropertySource extends EnumerablePropertySource<Class<?>
 
 	private String getName(PropertyMapping typeMapping, PropertyMapping attributeMapping,
 			Method attribute) {
-		String prefix = (typeMapping == null ? "" : typeMapping.value());
-		String name = (attributeMapping == null ? "" : attributeMapping.value());
+		String prefix = (typeMapping != null ? typeMapping.value() : "");
+		String name = (attributeMapping != null ? attributeMapping.value() : "");
 		if (!StringUtils.hasText(name)) {
 			name = toKebabCase(attribute.getName());
 		}
@@ -158,7 +159,7 @@ public class AnnotationsPropertySource extends EnumerablePropertySource<Class<?>
 					matcher.group(1) + '-' + StringUtils.uncapitalize(matcher.group(2)));
 		}
 		matcher.appendTail(result);
-		return result.toString().toLowerCase();
+		return result.toString().toLowerCase(Locale.ENGLISH);
 	}
 
 	private String dotAppend(String prefix, String postfix) {

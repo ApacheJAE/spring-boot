@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ public class SampleServletApplicationTests {
 	private TestRestTemplate restTemplate;
 
 	@Test
-	public void testHomeIsSecure() throws Exception {
+	public void testHomeIsSecure() {
 		HttpHeaders headers = new HttpHeaders();
 		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 		ResponseEntity<String> entity = this.restTemplate.exchange("/", HttpMethod.GET,
@@ -57,7 +57,7 @@ public class SampleServletApplicationTests {
 	}
 
 	@Test
-	public void testHome() throws Exception {
+	public void testHome() {
 		ResponseEntity<String> entity = this.restTemplate
 				.withBasicAuth("user", getPassword()).getForEntity("/", String.class);
 		assertThat(entity.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -67,4 +67,5 @@ public class SampleServletApplicationTests {
 	private String getPassword() {
 		return "password";
 	}
+
 }

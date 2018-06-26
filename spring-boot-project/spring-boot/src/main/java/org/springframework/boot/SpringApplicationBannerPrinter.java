@@ -36,9 +36,9 @@ import org.springframework.util.StringUtils;
  */
 class SpringApplicationBannerPrinter {
 
-	static final String BANNER_LOCATION_PROPERTY = "banner.location";
+	static final String BANNER_LOCATION_PROPERTY = "spring.banner.location";
 
-	static final String BANNER_IMAGE_LOCATION_PROPERTY = "banner.image.location";
+	static final String BANNER_IMAGE_LOCATION_PROPERTY = "spring.banner.image.location";
 
 	static final String DEFAULT_BANNER_LOCATION = "banner.txt";
 
@@ -114,7 +114,7 @@ class SpringApplicationBannerPrinter {
 			Class<?> mainApplicationClass) throws UnsupportedEncodingException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		banner.printBanner(environment, mainApplicationClass, new PrintStream(baos));
-		String charset = environment.getProperty("banner.charset", "UTF-8");
+		String charset = environment.getProperty("spring.banner.charset", "UTF-8");
 		return baos.toString(charset);
 	}
 
@@ -163,7 +163,7 @@ class SpringApplicationBannerPrinter {
 		@Override
 		public void printBanner(Environment environment, Class<?> sourceClass,
 				PrintStream out) {
-			sourceClass = (sourceClass == null ? this.sourceClass : sourceClass);
+			sourceClass = (sourceClass != null ? sourceClass : this.sourceClass);
 			this.banner.printBanner(environment, sourceClass, out);
 		}
 
